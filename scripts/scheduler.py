@@ -3,11 +3,13 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.session import SessionLocal
 from app.scrapers.ambassador import AmbassadorScraper
+from app.scrapers.breezecinemas import BreezeCinemasScraper
 from app.scrapers.eslite import EsliteScraper
 from app.scrapers.governor import GovernorScraper
 from app.scrapers.halarcity import HalarCityScraper
 from app.scrapers.in89 import In89Scraper
 from app.scrapers.kfa import KfaScraper
+from app.scrapers.luxcinema import LuxCinemaScraper
 from app.scrapers.miramar import MiramarScraper
 from app.scrapers.miranew import MiranewScraper
 from app.scrapers.skcinemas import SKCinemasScraper
@@ -50,6 +52,14 @@ def sync_ambassador():
     print(f"[ambassador] imported {imported} showtimes")
 
 
+def sync_breezecinemas():
+    scraper = BreezeCinemasScraper()
+    items = scraper.scrape()
+    with SessionLocal() as db:
+        imported = import_showtimes(db, items)
+    print(f"[breezecinemas] imported {imported} showtimes")
+
+
 def sync_eslite():
     scraper = EsliteScraper()
     items = scraper.scrape()
@@ -80,6 +90,14 @@ def sync_kfa():
     with SessionLocal() as db:
         imported = import_showtimes(db, items)
     print(f"[kfa] imported {imported} showtimes")
+
+
+def sync_luxcinema():
+    scraper = LuxCinemaScraper()
+    items = scraper.scrape()
+    with SessionLocal() as db:
+        imported = import_showtimes(db, items)
+    print(f"[luxcinema] imported {imported} showtimes")
 
 
 def sync_miramar():
@@ -128,10 +146,12 @@ if __name__ == "__main__":
     scheduler.add_job(sync_showtimes, "cron", hour="9,12,18,22", minute=15)
     scheduler.add_job(sync_in89, "cron", hour="9,12,18,22", minute=25)
     scheduler.add_job(sync_ambassador, "cron", hour="9,12,18,22", minute=35)
+    scheduler.add_job(sync_breezecinemas, "cron", hour="9,12,18,22", minute=38)
     scheduler.add_job(sync_eslite, "cron", hour="9,12,18,22", minute=40)
     scheduler.add_job(sync_halarcity, "cron", hour="9,12,18,22", minute=42)
     scheduler.add_job(sync_governor, "cron", hour="9,12,18,22", minute=43)
     scheduler.add_job(sync_kfa, "cron", hour="9,12,18,22", minute=45)
+    scheduler.add_job(sync_luxcinema, "cron", hour="9,12,18,22", minute=48)
     scheduler.add_job(sync_miramar, "cron", hour="9,12,18,22", minute=50)
     scheduler.add_job(sync_miranew, "cron", hour="9,12,18,22", minute=55)
     scheduler.add_job(sync_skcinemas, "cron", hour="10,13,19,23", minute=5)
