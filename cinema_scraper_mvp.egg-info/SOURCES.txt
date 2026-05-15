@@ -15,6 +15,7 @@ app/schemas/__init__.py
 app/schemas/cinema.py
 app/scrapers/__init__.py
 app/scrapers/base.py
+app/scrapers/governor.py
 app/scrapers/in89.py
 app/scrapers/showtime_cinemas.py
 app/scrapers/vieshow.py

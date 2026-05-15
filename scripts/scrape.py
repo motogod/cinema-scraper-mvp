@@ -3,6 +3,7 @@ import typer
 from app.db.session import SessionLocal
 from app.scrapers.ambassador import AmbassadorScraper
 from app.scrapers.eslite import EsliteScraper
+from app.scrapers.governor import GovernorScraper
 from app.scrapers.halarcity import HalarCityScraper
 from app.scrapers.in89 import In89Scraper
 from app.scrapers.kfa import KfaScraper
@@ -64,6 +65,12 @@ def halarcity():
 
 
 @app.command()
+def governor():
+    scraper = GovernorScraper()
+    _sync_source("governor", scraper, "Governor Cinemas")
+
+
+@app.command()
 def kfa():
     scraper = KfaScraper()
     _sync_source("kfa", scraper, "Kaohsiung Film Archive")
@@ -108,6 +115,7 @@ def scrape_all(headless: bool = True, continue_on_error: bool = True):
         ("ambassador", AmbassadorScraper(), "Ambassador Theatres"),
         ("eslite", EsliteScraper(), "Eslite Art House"),
         ("halarcity", HalarCityScraper(), "Halar Cinemas"),
+        ("governor", GovernorScraper(), "Governor Cinemas"),
         ("kfa", KfaScraper(), "Kaohsiung Film Archive"),
         ("miramar", MiramarScraper(), "Miramar Cinemas"),
         ("miranew", MiranewScraper(), "Miranew Cinemas"),
