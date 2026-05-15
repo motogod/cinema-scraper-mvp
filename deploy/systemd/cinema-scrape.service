@@ -1,0 +1,9 @@
+[Unit]
+Description=Cinema Scraper Sync
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cinema-scraper-mvp
+EnvironmentFile=-/opt/cinema-scraper-mvp/.env
+ExecStart=/opt/cinema-scraper-mvp/.venv/bin/python scripts/scrape.py all

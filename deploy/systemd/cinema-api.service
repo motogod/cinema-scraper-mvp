@@ -1,0 +1,13 @@
+[Unit]
+Description=Cinema Scraper FastAPI
+After=network.target postgresql.service
+
+[Service]
+WorkingDirectory=/opt/cinema-scraper-mvp
+EnvironmentFile=-/opt/cinema-scraper-mvp/.env
+ExecStart=/opt/cinema-scraper-mvp/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
