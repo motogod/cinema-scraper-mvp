@@ -1,3 +1,5 @@
+import time
+
 import typer
 
 from app.db.session import SessionLocal
@@ -30,10 +32,40 @@ def _sync_source(source: str, scraper, label: str) -> int:
     return imported
 
 
+def _sync_source_with_retry(
+    source: str,
+    scraper_factory,
+    label: str,
+    retries: int = 1,
+    retry_delay_minutes: int = 15,
+) -> int:
+    for attempt in range(1, retries + 2):
+        try:
+            return _sync_source(source, scraper_factory(), label)
+        except Exception as exc:
+            if attempt > retries:
+                raise
+            typer.echo(
+                f"[{source}] Failed attempt {attempt}/{retries + 1}: {exc}",
+                err=True,
+            )
+            typer.echo(
+                f"[{source}] Retrying in {retry_delay_minutes} minutes...",
+                err=True,
+            )
+            time.sleep(retry_delay_minutes * 60)
+    raise RuntimeError(f"{source} retry loop exited unexpectedly")
+
+
 @app.command()
-def vieshow(headless: bool = True):
-    scraper = VieShowScraper(headless=headless)
-    _sync_source("vieshow", scraper, "Vie Show")
+def vieshow(headless: bool = True, retries: int = 1, retry_delay_minutes: int = 15):
+    _sync_source_with_retry(
+        "vieshow",
+        lambda: VieShowScraper(headless=headless),
+        "Vie Show",
+        retries=retries,
+        retry_delay_minutes=retry_delay_minutes,
+    )
 
 
 @app.command()
@@ -121,9 +153,13 @@ def spot_hs():
 
 
 @app.command("all")
-def scrape_all(headless: bool = True, continue_on_error: bool = True):
+def scrape_all(
+    headless: bool = True,
+    continue_on_error: bool = True,
+    vieshow_retries: int = 1,
+    vieshow_retry_delay_minutes: int = 15,
+):
     scrapers = [
-        ("vieshow", VieShowScraper(headless=headless), "Vie Show"),
         ("showtimes", ShowtimeCinemasScraper(), "Showtime Cinemas"),
         ("in89", In89Scraper(), "in89 Cinemax"),
         ("ambassador", AmbassadorScraper(), "Ambassador Theatres"),
@@ -138,13 +174,23 @@ def scrape_all(headless: bool = True, continue_on_error: bool = True):
         ("skcinemas", SKCinemasScraper(), "Shin Kong Cinemas"),
         ("spot", SpotScraper(), "SPOT Taipei"),
         ("spot_hs", SpotHuashanScraper(), "SPOT Huashan"),
+        ("vieshow", lambda: VieShowScraper(headless=headless), "Vie Show"),
     ]
 
     total = 0
     failures = []
     for source, scraper, label in scrapers:
         try:
-            total += _sync_source(source, scraper, label)
+            if source == "vieshow":
+                total += _sync_source_with_retry(
+                    source,
+                    scraper,
+                    label,
+                    retries=vieshow_retries,
+                    retry_delay_minutes=vieshow_retry_delay_minutes,
+                )
+            else:
+                total += _sync_source(source, scraper, label)
         except Exception as exc:
             failures.append((source, exc))
             typer.echo(f"[{source}] Failed: {exc}", err=True)

@@ -19,13 +19,27 @@ from app.scrapers.showtime_cinemas import ShowtimeCinemasScraper
 from app.scrapers.vieshow import VieShowScraper
 from app.services.importer import import_showtimes
 
+VIESHOW_RETRIES = 1
+VIESHOW_RETRY_DELAY_MINUTES = 15
+
 
 def sync_vieshow():
-    scraper = VieShowScraper(headless=True)
-    items = scraper.scrape()
-    with SessionLocal() as db:
-        imported = import_showtimes(db, items)
-    print(f"[vieshow] imported {imported} showtimes")
+    for attempt in range(1, VIESHOW_RETRIES + 2):
+        try:
+            scraper = VieShowScraper(headless=True)
+            items = scraper.scrape()
+            with SessionLocal() as db:
+                imported = import_showtimes(db, items)
+            print(f"[vieshow] imported {imported} showtimes")
+            return
+        except Exception as exc:
+            if attempt > VIESHOW_RETRIES:
+                raise
+            print(
+                f"[vieshow] failed attempt {attempt}/{VIESHOW_RETRIES + 1}: {exc}"
+            )
+            print(f"[vieshow] retrying in {VIESHOW_RETRY_DELAY_MINUTES} minutes")
+            time.sleep(VIESHOW_RETRY_DELAY_MINUTES * 60)
 
 
 def sync_showtimes():
