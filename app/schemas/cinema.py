@@ -55,6 +55,14 @@ class MovieOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class MovieListOut(BaseModel):
+    title: str
+    title_en: str | None = None
+    poster_url: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class MovieDetailOut(MovieOut):
     sources: list[MovieSourceOut] = Field(default_factory=list)
 

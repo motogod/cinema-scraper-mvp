@@ -12,6 +12,7 @@ from app.schemas.cinema import (
     GroupedShowtimeMovieOut,
     MovieCityShowtimeSearchOut,
     MovieDetailOut,
+    MovieListOut,
     MovieOut,
     MovieSearchOut,
     ShowtimeOut,
@@ -67,6 +68,16 @@ def list_cinemas(
 @router.get("/movies", response_model=list[MovieOut])
 def list_movies(db: Session = Depends(get_db)):
     return db.scalars(select(Movie).order_by(Movie.title)).all()
+
+
+@router.get("/movies/list", response_model=list[MovieListOut])
+def list_movie_summaries(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    stmt = select(Movie).order_by(Movie.title).offset(offset).limit(limit)
+    return db.scalars(stmt).all()
 
 
 @router.get("/movies/search", response_model=list[MovieSearchOut])
