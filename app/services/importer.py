@@ -60,6 +60,7 @@ def replace_showtimes(db: Session, items: list[ScrapedShowtime], source: str) ->
     ensure_schema(db)
     db.execute(delete(Showtime).where(Showtime.source == source))
     db.execute(delete(MovieSource).where(MovieSource.source == source))
+    _delete_orphan_movies(db)
     db.commit()
     return import_showtimes(db, items)
 
@@ -271,6 +272,11 @@ def _has_cjk(value: str) -> bool:
 def _movie_key(title: str | None) -> str:
     if not title:
         return ""
+    title = _canonical_movie_title(title)
+    return re.sub(r"[\W_]+", "", title).lower()
+
+
+def _canonical_movie_title(title: str) -> str:
     title = (
         title.replace("Ⅰ", "I")
         .replace("Ⅱ", "II")
@@ -283,7 +289,39 @@ def _movie_key(title: str | None) -> str:
         .replace("Ⅸ", "IX")
         .replace("Ⅹ", "X")
     )
-    return re.sub(r"[：:：－—\-・·\s　！!？?（）()《》「」『』,.，。/\\]+", "", title).lower()
+    title = re.sub(r"\s+", " ", title).strip()
+    title = _strip_prefixed_tags(title)
+    title = _strip_suffixed_tags(title)
+    title = re.sub(r"^(國語|日語|英語|中文|英文|粵語|韓語)\s*", "", title, flags=re.IGNORECASE)
+    return title
+
+
+def _strip_prefixed_tags(title: str) -> str:
+    while True:
+        stripped = re.sub(
+            r"^\s*[\(\[【（]\s*(?:DIG\s*[A-Z]?|數位|國語|日語|英語|中文|英文|粵語|韓語|"
+            r"普遍級|保護級|輔(?:導)?(?:12|15)?級?|限制級|PG\s*\d*|G|R)\s*[\)\]】）]\s*",
+            "",
+            title,
+            flags=re.IGNORECASE,
+        ).strip()
+        if stripped == title:
+            return stripped
+        title = stripped
+
+
+def _strip_suffixed_tags(title: str) -> str:
+    while True:
+        stripped = re.sub(
+            r"\s*[\(\[【（]\s*(?:DIG\s*[A-Z]?|數位|國語|日語|英語|中文|英文|粵語|韓語|"
+            r"普遍級|保護級|輔(?:導)?(?:12|15)?級?|限制級|PG\s*\d*|G|R)\s*[\)\]】）]\s*$",
+            "",
+            title,
+            flags=re.IGNORECASE,
+        ).strip()
+        if stripped == title:
+            return stripped
+        title = stripped
 
 
 def _movie_insert_values(movie) -> dict:

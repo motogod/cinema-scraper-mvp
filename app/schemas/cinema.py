@@ -82,6 +82,8 @@ class ShowtimeOut(BaseModel):
 
 class MovieSessionOut(BaseModel):
     time: str
+    show_date: date | None = None
+    start_time: time | None = None
     format: str | None = None
     language: str | None = None
     version_label: str | None = None
@@ -113,3 +115,23 @@ class GroupedShowtimeMovieOut(BaseModel):
     genre: str | None = None
     format: str | None = None
     start_time: list[str]
+
+
+class MovieSearchOut(BaseModel):
+    movie_id: int
+    title: str
+    title_en: str | None = None
+    poster_url: str | None = None
+    genre: str | None = None
+    rating: str | None = None
+    duration_minutes: int | None = None
+    release_date: date | None = None
+
+
+class MovieCityShowtimeSearchOut(BaseModel):
+    cinema_id: int
+    cinema: str
+    movie_id: int
+    title: str
+    title_en: str | None = None
+    start_time: list[str] = Field(default_factory=list)
