@@ -82,7 +82,7 @@ class BreezeCinemasScraper:
                             audio_language=self._language(showtime_format),
                             subtitle_language=None,
                             source_payload={
-                                "session": session,
+                                "session": self._serializable_session(session),
                                 "room_text": self._clean_text(room_node.get_text(" ", strip=True)),
                             },
                         )
@@ -138,6 +138,12 @@ class BreezeCinemasScraper:
             "start_at": self._parse_datetime(parts[0] if len(parts) > 0 else None),
             "program_code": parts[1] if len(parts) > 1 else None,
             "venue_room_code": parts[2] if len(parts) > 2 else None,
+        }
+
+    def _serializable_session(self, session: dict[str, str | datetime | None]) -> dict[str, str | None]:
+        return {
+            key: value.isoformat() if isinstance(value, datetime) else value
+            for key, value in session.items()
         }
 
     def _first_program_code(self, card) -> str | None:
