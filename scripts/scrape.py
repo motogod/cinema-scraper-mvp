@@ -4,6 +4,7 @@ import typer
 
 from app.db.session import SessionLocal
 from app.scrapers.ambassador import AmbassadorScraper
+from app.scrapers.broadway import BroadwayScraper
 from app.scrapers.breezecinemas import BreezeCinemasScraper
 from app.scrapers.eslite import EsliteScraper
 from app.scrapers.governor import GovernorScraper
@@ -18,6 +19,7 @@ from app.scrapers.spot import SpotScraper
 from app.scrapers.spot_hs import SpotHuashanScraper
 from app.scrapers.showtime_cinemas import ShowtimeCinemasScraper
 from app.scrapers.vieshow import VieShowScraper
+from app.scrapers.wonderful import WonderfulScraper
 from app.services.importer import replace_showtimes
 
 app = typer.Typer()
@@ -93,6 +95,18 @@ def breezecinemas():
 
 
 @app.command()
+def broadway():
+    scraper = BroadwayScraper()
+    _sync_source("broadway", scraper, "Broadway Cinemas")
+
+
+@app.command()
+def wonderful():
+    scraper = WonderfulScraper()
+    _sync_source("wonderful", scraper, "Wonderful Theatre")
+
+
+@app.command()
 def eslite():
     scraper = EsliteScraper()
     _sync_source("eslite", scraper, "Eslite Art House")
@@ -164,6 +178,8 @@ def scrape_all(
         ("in89", In89Scraper(), "in89 Cinemax"),
         ("ambassador", AmbassadorScraper(), "Ambassador Theatres"),
         ("breezecinemas", BreezeCinemasScraper(), "Breeze Cinemas"),
+        ("broadway", BroadwayScraper(), "Broadway Cinemas"),
+        ("wonderful", WonderfulScraper(), "Wonderful Theatre"),
         ("eslite", EsliteScraper(), "Eslite Art House"),
         ("halarcity", HalarCityScraper(), "Halar Cinemas"),
         ("governor", GovernorScraper(), "Governor Cinemas"),

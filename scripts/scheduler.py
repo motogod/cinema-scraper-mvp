@@ -3,6 +3,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.session import SessionLocal
 from app.scrapers.ambassador import AmbassadorScraper
+from app.scrapers.broadway import BroadwayScraper
 from app.scrapers.breezecinemas import BreezeCinemasScraper
 from app.scrapers.eslite import EsliteScraper
 from app.scrapers.governor import GovernorScraper
@@ -17,6 +18,7 @@ from app.scrapers.spot import SpotScraper
 from app.scrapers.spot_hs import SpotHuashanScraper
 from app.scrapers.showtime_cinemas import ShowtimeCinemasScraper
 from app.scrapers.vieshow import VieShowScraper
+from app.scrapers.wonderful import WonderfulScraper
 from app.services.importer import replace_showtimes
 
 VIESHOW_RETRIES = 1
@@ -72,6 +74,22 @@ def sync_breezecinemas():
     with SessionLocal() as db:
         imported = replace_showtimes(db, items, source="breezecinemas")
     print(f"[breezecinemas] imported {imported} showtimes")
+
+
+def sync_broadway():
+    scraper = BroadwayScraper()
+    items = scraper.scrape()
+    with SessionLocal() as db:
+        imported = replace_showtimes(db, items, source="broadway")
+    print(f"[broadway] imported {imported} showtimes")
+
+
+def sync_wonderful():
+    scraper = WonderfulScraper()
+    items = scraper.scrape()
+    with SessionLocal() as db:
+        imported = replace_showtimes(db, items, source="wonderful")
+    print(f"[wonderful] imported {imported} showtimes")
 
 
 def sync_eslite():
@@ -161,6 +179,8 @@ if __name__ == "__main__":
     scheduler.add_job(sync_in89, "cron", hour="9,12,18,22", minute=25)
     scheduler.add_job(sync_ambassador, "cron", hour="9,12,18,22", minute=35)
     scheduler.add_job(sync_breezecinemas, "cron", hour="9,12,18,22", minute=38)
+    scheduler.add_job(sync_broadway, "cron", hour="9,12,18,22", minute=41)
+    scheduler.add_job(sync_wonderful, "cron", hour="9,12,18,22", minute=39)
     scheduler.add_job(sync_eslite, "cron", hour="9,12,18,22", minute=40)
     scheduler.add_job(sync_halarcity, "cron", hour="9,12,18,22", minute=42)
     scheduler.add_job(sync_governor, "cron", hour="9,12,18,22", minute=43)
