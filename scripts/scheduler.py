@@ -17,7 +17,7 @@ from app.scrapers.spot import SpotScraper
 from app.scrapers.spot_hs import SpotHuashanScraper
 from app.scrapers.showtime_cinemas import ShowtimeCinemasScraper
 from app.scrapers.vieshow import VieShowScraper
-from app.services.importer import import_showtimes
+from app.services.importer import replace_showtimes
 
 VIESHOW_RETRIES = 1
 VIESHOW_RETRY_DELAY_MINUTES = 15
@@ -29,7 +29,7 @@ def sync_vieshow():
             scraper = VieShowScraper(headless=True)
             items = scraper.scrape()
             with SessionLocal() as db:
-                imported = import_showtimes(db, items)
+                imported = replace_showtimes(db, items, source="vieshow")
             print(f"[vieshow] imported {imported} showtimes")
             return
         except Exception as exc:
@@ -46,7 +46,7 @@ def sync_showtimes():
     scraper = ShowtimeCinemasScraper()
     items = scraper.scrape()
     with SessionLocal() as db:
-        imported = import_showtimes(db, items)
+        imported = replace_showtimes(db, items, source="showtimes")
     print(f"[showtimes] imported {imported} showtimes")
 
 
@@ -54,7 +54,7 @@ def sync_in89():
     scraper = In89Scraper()
     items = scraper.scrape()
     with SessionLocal() as db:
-        imported = import_showtimes(db, items)
+        imported = replace_showtimes(db, items, source="in89")
     print(f"[in89] imported {imported} showtimes")
 
 
@@ -62,7 +62,7 @@ def sync_ambassador():
     scraper = AmbassadorScraper()
     items = scraper.scrape()
     with SessionLocal() as db:
-        imported = import_showtimes(db, items)
+        imported = replace_showtimes(db, items, source="ambassador")
     print(f"[ambassador] imported {imported} showtimes")
 
 
@@ -70,7 +70,7 @@ def sync_breezecinemas():
     scraper = BreezeCinemasScraper()
     items = scraper.scrape()
     with SessionLocal() as db:
-        imported = import_showtimes(db, items)
+        imported = replace_showtimes(db, items, source="breezecinemas")
     print(f"[breezecinemas] imported {imported} showtimes")
 
 
@@ -78,7 +78,7 @@ def sync_eslite():
     scraper = EsliteScraper()
     items = scraper.scrape()
     with SessionLocal() as db:
-        imported = import_showtimes(db, items)
+        imported = replace_showtimes(db, items, source="eslite")
     print(f"[eslite] imported {imported} showtimes")
 
 
@@ -86,7 +86,7 @@ def sync_halarcity():
     scraper = HalarCityScraper()
     items = scraper.scrape()
     with SessionLocal() as db:
-        imported = import_showtimes(db, items)
+        imported = replace_showtimes(db, items, source="halarcity")
     print(f"[halarcity] imported {imported} showtimes")
 
 
@@ -94,7 +94,7 @@ def sync_governor():
     scraper = GovernorScraper()
     items = scraper.scrape()
     with SessionLocal() as db:
-        imported = import_showtimes(db, items)
+        imported = replace_showtimes(db, items, source="governor")
     print(f"[governor] imported {imported} showtimes")
 
 
@@ -102,7 +102,7 @@ def sync_kfa():
     scraper = KfaScraper()
     items = scraper.scrape()
     with SessionLocal() as db:
-        imported = import_showtimes(db, items)
+        imported = replace_showtimes(db, items, source="kfa")
     print(f"[kfa] imported {imported} showtimes")
 
 
@@ -110,7 +110,7 @@ def sync_luxcinema():
     scraper = LuxCinemaScraper()
     items = scraper.scrape()
     with SessionLocal() as db:
-        imported = import_showtimes(db, items)
+        imported = replace_showtimes(db, items, source="luxcinema")
     print(f"[luxcinema] imported {imported} showtimes")
 
 
@@ -118,7 +118,7 @@ def sync_miramar():
     scraper = MiramarScraper()
     items = scraper.scrape()
     with SessionLocal() as db:
-        imported = import_showtimes(db, items)
+        imported = replace_showtimes(db, items, source="miramar")
     print(f"[miramar] imported {imported} showtimes")
 
 
@@ -126,7 +126,7 @@ def sync_miranew():
     scraper = MiranewScraper()
     items = scraper.scrape()
     with SessionLocal() as db:
-        imported = import_showtimes(db, items)
+        imported = replace_showtimes(db, items, source="miranew")
     print(f"[miranew] imported {imported} showtimes")
 
 
@@ -134,7 +134,7 @@ def sync_skcinemas():
     scraper = SKCinemasScraper()
     items = scraper.scrape()
     with SessionLocal() as db:
-        imported = import_showtimes(db, items)
+        imported = replace_showtimes(db, items, source="skcinemas")
     print(f"[skcinemas] imported {imported} showtimes")
 
 
@@ -142,7 +142,7 @@ def sync_spot():
     scraper = SpotScraper()
     items = scraper.scrape()
     with SessionLocal() as db:
-        imported = import_showtimes(db, items)
+        imported = replace_showtimes(db, items, source="spot")
     print(f"[spot] imported {imported} showtimes")
 
 
@@ -150,7 +150,7 @@ def sync_spot_hs():
     scraper = SpotHuashanScraper()
     items = scraper.scrape()
     with SessionLocal() as db:
-        imported = import_showtimes(db, items)
+        imported = replace_showtimes(db, items, source="spot_hs")
     print(f"[spot_hs] imported {imported} showtimes")
 
 
