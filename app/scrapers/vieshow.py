@@ -390,9 +390,17 @@ class VieShowScraper:
                     continue
                 self._append_detail_urls_from_html(detail_urls, html, detail_url, wanted_movie_keys)
                 detail = self._parse_movie_detail(html, detail_url)
-                for key in [self._movie_key(detail.title), self._movie_key(detail.title_zh), self._movie_key(detail.title_en)]:
-                    if key and key in wanted_movie_keys:
-                        details[key] = detail
+                detail_keys = [
+                    self._movie_key(detail.title),
+                    self._movie_key(detail.title_zh),
+                    self._movie_key(detail.title_en),
+                ]
+                matched_wanted_key = self._matching_wanted_movie_key(detail_keys, wanted_movie_keys)
+                if matched_wanted_key:
+                    details[matched_wanted_key] = detail
+                    for key in detail_keys:
+                        if key:
+                            details[key] = detail
                 self._write_debug_movie_detail(detail, html)
                 if wanted_movie_keys.issubset(details.keys()):
                     break
@@ -443,9 +451,38 @@ class VieShowScraper:
         for line in re.split(r"\s{2,}|\n", text):
             parsed = self._split_movie_label(line)
             key = self._movie_key(parsed["title"])
-            if key and key in wanted_movie_keys:
+            if key and self._matching_wanted_movie_key([key], wanted_movie_keys):
                 return True
         return False
+
+    def _matching_wanted_movie_key(
+        self,
+        candidate_keys: list[str],
+        wanted_movie_keys: set[str],
+    ) -> str | None:
+        for candidate_key in candidate_keys:
+            if not candidate_key:
+                continue
+            if candidate_key in wanted_movie_keys:
+                return candidate_key
+            for wanted_key in wanted_movie_keys:
+                if self._movie_keys_match(candidate_key, wanted_key):
+                    return wanted_key
+        return None
+
+    def _movie_keys_match(self, left: str, right: str) -> bool:
+        if left == right:
+            return True
+        if len(left) < 4 or len(right) < 4:
+            return False
+
+        shorter, longer = sorted([left, right], key=len)
+        if shorter not in longer:
+            return False
+
+        # Avoid matching very short common fragments while still accepting
+        # showtime labels that are truncated by the Vie Show page.
+        return len(shorter) >= 8 or len(shorter) / len(longer) >= 0.55
 
     def _write_debug_movie_detail(self, movie: ScrapedMovie, html: str) -> None:
         if not movie.source_movie_id:
@@ -781,9 +818,7 @@ class VieShowScraper:
         title_en: str | None,
         movie_details: dict[str, ScrapedMovie],
     ) -> ScrapedMovie:
-        detail = movie_details.get(self._movie_key(title_zh))
-        if not detail and title_en:
-            detail = movie_details.get(self._movie_key(title_en))
+        detail = self._find_movie_detail(movie_details, title_zh, title_en)
         if not detail:
             return ScrapedMovie(
                 title=title_zh,
@@ -847,8 +882,21 @@ class VieShowScraper:
     def _looks_like_theater_movie_title(self, line: str) -> bool:
         if not self._looks_like_movie_title(line):
             return False
-        ignored = ["MORE", "LOADING", "首頁", "場次查詢", "售票公告", "入場須知"]
+        ignored = [
+            "MORE",
+            "LOADING",
+            "首頁",
+            "場次查詢",
+            "售票公告",
+            "入場須知",
+            "隔日",
+            "特別場",
+            "口碑場",
+            "粉絲場",
+        ]
         if any(word in line for word in ignored):
+            return False
+        if re.fullmatch(r"[（(][^)）]+[)）]", line):
             return False
         return not self._looks_like_version_label(line)
 
@@ -953,7 +1001,7 @@ class VieShowScraper:
             if self._looks_like_movie_title(line):
                 parsed = self._split_movie_label(line[:120])
                 key = self._movie_key(parsed["title"])
-                current_movie = (movie_details or {}).get(key) or ScrapedMovie(
+                current_movie = self._find_movie_detail(movie_details or {}, parsed["title"]) or ScrapedMovie(
                     title=parsed["title"],
                     title_zh=parsed["title"],
                     rating=parsed["rating"],
@@ -1073,7 +1121,7 @@ class VieShowScraper:
     ) -> tuple[ScrapedMovie, str | None, str | None]:
         tw = self._split_movie_label(tw_label)
         en = self._split_movie_label(en_label or "")
-        detail = movie_details.get(self._movie_key(tw["title"])) or movie_details.get(self._movie_key(en["title"]))
+        detail = self._find_movie_detail(movie_details, tw["title"], en["title"])
         title_zh = tw["title"] or (detail.title_zh if detail else None) or (detail.title if detail else None)
         title_en = en["title"] or (detail.title_en if detail else None)
         rating = tw["rating"] or (detail.rating if detail else None)
@@ -1114,6 +1162,23 @@ class VieShowScraper:
             showtime_format,
             language,
         )
+
+    def _find_movie_detail(
+        self,
+        movie_details: dict[str, ScrapedMovie],
+        *titles: str | None,
+    ) -> ScrapedMovie | None:
+        keys = [self._movie_key(title) for title in titles if title]
+        for key in keys:
+            detail = movie_details.get(key)
+            if detail:
+                return detail
+
+        for key in keys:
+            for detail_key, detail in movie_details.items():
+                if self._movie_keys_match(detail_key, key):
+                    return detail
+        return None
 
     def _split_movie_label(self, label: str) -> dict[str, str | None]:
         text = re.sub(r"\s+", " ", label or "").strip()
