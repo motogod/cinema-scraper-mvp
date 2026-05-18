@@ -5,7 +5,7 @@ import re
 
 from app.models import Cinema, CinemaChain, Movie, MovieSource, Showtime
 from app.scrapers.base import ScrapedShowtime
-from app.utils.trailers import youtube_video_id
+from app.utils.trailers import youtube_thumbnail_url, youtube_video_id
 
 
 def import_showtimes(db: Session, items: list[ScrapedShowtime]) -> int:
@@ -60,10 +60,12 @@ def import_showtimes(db: Session, items: list[ScrapedShowtime]) -> int:
 def replace_showtimes(db: Session, items: list[ScrapedShowtime], source: str) -> int:
     ensure_schema(db)
     db.execute(delete(Showtime).where(Showtime.source == source))
-    db.execute(delete(MovieSource).where(MovieSource.source == source))
+    db.commit()
+    imported = import_showtimes(db, items)
+    _delete_stale_movie_sources(db, items, source)
     _delete_orphan_movies(db)
     db.commit()
-    return import_showtimes(db, items)
+    return imported
 
 
 def _delete_orphan_movies(db: Session) -> None:
@@ -72,6 +74,18 @@ def _delete_orphan_movies(db: Session) -> None:
             ~select(Showtime.id).where(Showtime.movie_id == Movie.id).exists()
         )
     )
+
+
+def _delete_stale_movie_sources(db: Session, items: list[ScrapedShowtime], source: str) -> None:
+    source_movie_ids = {
+        item.movie.source_movie_id
+        for item in items
+        if item.source == source and item.movie.source_movie_id
+    }
+    stmt = delete(MovieSource).where(MovieSource.source == source)
+    if source_movie_ids:
+        stmt = stmt.where(MovieSource.source_movie_id.not_in(source_movie_ids))
+    db.execute(stmt)
 
 
 def _upsert_cinema(db: Session, item: ScrapedShowtime) -> int:
@@ -366,6 +380,7 @@ def _movie_insert_values(movie) -> dict:
         "cast_photo_urls": movie.cast_photo_urls,
         "trailer_url": movie.trailer_url,
         "trailer_video_id": trailer_video_id,
+        "youtube_thumbnail": youtube_thumbnail_url(trailer_video_id),
         "detail_url": movie.detail_url,
         "source_movie_id": movie.source_movie_id,
     }
@@ -388,22 +403,34 @@ def _movie_merge_updates(existing: Movie, incoming, pending: dict | None = None)
         "cast",
         "trailer_url",
         "trailer_video_id",
+        "youtube_thumbnail",
         "detail_url",
         "source_movie_id",
     ]:
-        incoming_value = getattr(incoming, field)
+        incoming_value = getattr(incoming, field, None)
         if field == "trailer_video_id":
             incoming_value = incoming_value or youtube_video_id(incoming.trailer_url)
+        if field == "youtube_thumbnail":
+            incoming_video_id = (
+                pending.get("trailer_video_id")
+                or getattr(existing, "trailer_video_id", None)
+                or getattr(incoming, "trailer_video_id", None)
+                or youtube_video_id(getattr(incoming, "trailer_url", None))
+            )
+            incoming_value = incoming_value or youtube_thumbnail_url(incoming_video_id)
         current_value = pending.get(field, getattr(existing, field))
         if _is_blank(current_value) and not _is_blank(incoming_value):
             updates[field] = incoming_value
 
-    still_urls = _better_list(existing.still_urls, incoming.still_urls)
-    if still_urls is not existing.still_urls:
+    still_urls = _better_list(pending.get("still_urls", existing.still_urls), incoming.still_urls)
+    if still_urls != pending.get("still_urls", existing.still_urls):
         updates["still_urls"] = still_urls
 
-    cast_photo_urls = _better_list(existing.cast_photo_urls, incoming.cast_photo_urls)
-    if cast_photo_urls is not existing.cast_photo_urls:
+    cast_photo_urls = _better_list(
+        pending.get("cast_photo_urls", existing.cast_photo_urls),
+        incoming.cast_photo_urls,
+    )
+    if cast_photo_urls != pending.get("cast_photo_urls", existing.cast_photo_urls):
         updates["cast_photo_urls"] = cast_photo_urls
 
     return updates
@@ -492,7 +519,15 @@ def ensure_schema(db: Session) -> None:
         "ALTER TABLE movies ADD COLUMN IF NOT EXISTS cast_photo_urls JSON",
         "ALTER TABLE movies ADD COLUMN IF NOT EXISTS trailer_url TEXT",
         "ALTER TABLE movies ADD COLUMN IF NOT EXISTS trailer_video_id VARCHAR(20)",
+        "ALTER TABLE movies ADD COLUMN IF NOT EXISTS youtube_thumbnail TEXT",
         "CREATE INDEX IF NOT EXISTS ix_movies_trailer_video_id ON movies (trailer_video_id)",
+        """
+        UPDATE movies
+        SET youtube_thumbnail = 'https://img.youtube.com/vi/' || trailer_video_id || '/maxresdefault.jpg'
+        WHERE youtube_thumbnail IS NULL
+          AND trailer_video_id IS NOT NULL
+          AND trailer_video_id ~ '^[A-Za-z0-9_-]{11}$'
+        """,
         "ALTER TABLE movies ADD COLUMN IF NOT EXISTS detail_url TEXT",
         """
         CREATE TABLE IF NOT EXISTS movie_sources (

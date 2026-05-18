@@ -60,6 +60,7 @@ class Movie(Base):
     cast_photo_urls: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     trailer_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     trailer_video_id: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
+    youtube_thumbnail: Mapped[str | None] = mapped_column(Text, nullable=True)
     detail_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_movie_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -69,6 +70,10 @@ class Movie(Base):
     sources: Mapped[list["MovieSource"]] = relationship(back_populates="movie")
 
     __table_args__ = (UniqueConstraint("title", name="uq_movies_title"),)
+
+    @property
+    def movie_id(self) -> int:
+        return self.id
 
 
 class MovieSource(Base):

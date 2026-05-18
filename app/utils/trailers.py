@@ -43,6 +43,11 @@ def youtube_watch_url(video_id: str | None) -> str | None:
     return f"https://www.youtube.com/watch?v={clean_id}" if clean_id else None
 
 
+def youtube_thumbnail_url(video_id: str | None) -> str | None:
+    clean_id = _valid_video_id(video_id)
+    return f"https://img.youtube.com/vi/{clean_id}/maxresdefault.jpg" if clean_id else None
+
+
 def _valid_video_id(value: str | None) -> str | None:
     if not value:
         return None

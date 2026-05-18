@@ -14,7 +14,7 @@ from app.services.importer import (
     _movie_title_keys,
     ensure_schema,
 )
-from app.utils.trailers import youtube_video_id, youtube_watch_url
+from app.utils.trailers import youtube_thumbnail_url, youtube_video_id, youtube_watch_url
 from app.utils.youtube_api import YouTubeApiClient, YouTubeApiError, YouTubeVideoCandidate
 from app.utils.youtube_web import YouTubeWebSearchClient, YouTubeWebSearchError
 
@@ -291,6 +291,8 @@ def apply_updates(db: Session, updates: list[TrailerUpdate]) -> None:
             values["trailer_url"] = item.trailer_url
         if not item.movie.trailer_video_id and item.trailer_video_id:
             values["trailer_video_id"] = item.trailer_video_id
+        if not item.movie.youtube_thumbnail and item.trailer_video_id:
+            values["youtube_thumbnail"] = youtube_thumbnail_url(item.trailer_video_id)
         if values:
             db.execute(update(Movie).where(Movie.id == item.movie.id).values(**values))
 
@@ -318,7 +320,7 @@ def _matching_trailer_source(movie: Movie, candidates: list[Movie]) -> Movie | N
 
 
 def _needs_trailer_update(movie: Movie) -> bool:
-    return not movie.trailer_url or not movie.trailer_video_id
+    return not movie.trailer_video_id
 
 
 def _has_trailer_data(movie: Movie) -> bool:

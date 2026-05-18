@@ -1,5 +1,7 @@
 import time
+import os
 
+from dotenv import load_dotenv
 import typer
 
 from app.db.session import SessionLocal
@@ -40,7 +42,15 @@ from app.scrapers.uch import UchScraper
 from app.scrapers.venice import VeniceScraper
 from app.scrapers.vieshow import VieShowScraper
 from app.scrapers.wonderful import WonderfulScraper
-from app.services.importer import replace_showtimes
+from app.services.importer import ensure_schema, replace_showtimes
+from app.utils.youtube_api import YouTubeApiClient, YouTubeApiError
+from app.utils.youtube_web import YouTubeWebSearchClient, YouTubeWebSearchError
+from enrich_trailers import (
+    apply_updates,
+    find_trailer_updates,
+    find_youtube_trailer_updates,
+    find_youtube_web_trailer_updates,
+)
 
 app = typer.Typer()
 
@@ -77,6 +87,54 @@ def _sync_source_with_retry(
             )
             time.sleep(retry_delay_minutes * 60)
     raise RuntimeError(f"{source} retry loop exited unexpectedly")
+
+
+def _sync_trailer_video_ids(
+    youtube_web: bool = True,
+    youtube_api: bool = False,
+    youtube_api_key: str | None = None,
+    youtube_limit: int | None = None,
+    youtube_min_score: int = 7,
+    youtube_max_results: int = 5,
+) -> int:
+    load_dotenv()
+    with SessionLocal() as db:
+        ensure_schema(db)
+        updates = find_trailer_updates(db)
+
+        if youtube_api:
+            api_key = youtube_api_key or os.getenv("YOUTUBE_API_KEY")
+            if not api_key:
+                raise RuntimeError("Missing YouTube API key. Set YOUTUBE_API_KEY or pass --youtube-api-key.")
+            updates.extend(
+                find_youtube_trailer_updates(
+                    db,
+                    YouTubeApiClient(api_key),
+                    existing_updates=updates,
+                    limit=youtube_limit,
+                    min_score=youtube_min_score,
+                    max_results=youtube_max_results,
+                )
+            )
+
+        if youtube_web:
+            updates.extend(
+                find_youtube_web_trailer_updates(
+                    db,
+                    YouTubeWebSearchClient(),
+                    existing_updates=updates,
+                    limit=youtube_limit,
+                )
+            )
+
+        if not updates:
+            typer.echo("[trailers] No trailer updates found")
+            return 0
+
+        apply_updates(db, updates)
+        db.commit()
+        typer.echo(f"[trailers] Updated {len(updates)} movie trailers")
+        return len(updates)
 
 
 @app.command()
@@ -312,6 +370,13 @@ def scrape_all(
     continue_on_error: bool = True,
     vieshow_retries: int = 1,
     vieshow_retry_delay_minutes: int = 15,
+    enrich_trailers: bool = True,
+    youtube_web: bool = True,
+    youtube_api: bool = False,
+    youtube_api_key: str | None = None,
+    youtube_limit: int | None = None,
+    youtube_min_score: int = 7,
+    youtube_max_results: int = 5,
 ):
     scrapers = [
         ("acecinema", AceCinemaScraper(), "ACE Cinemas"),
@@ -374,12 +439,31 @@ def scrape_all(
                 raise
 
     typer.echo(f"Imported {total} showtimes from {len(scrapers) - len(failures)}/{len(scrapers)} sources")
+    trailer_updates = 0
+    if enrich_trailers:
+        try:
+            trailer_updates = _sync_trailer_video_ids(
+                youtube_web=youtube_web,
+                youtube_api=youtube_api,
+                youtube_api_key=youtube_api_key,
+                youtube_limit=youtube_limit,
+                youtube_min_score=youtube_min_score,
+                youtube_max_results=youtube_max_results,
+            )
+        except (YouTubeApiError, YouTubeWebSearchError, RuntimeError) as exc:
+            failures.append(("trailers", exc))
+            typer.echo(f"[trailers] Failed: {exc}", err=True)
+            if not continue_on_error:
+                raise
+
     if failures:
         typer.echo(
             "Failed sources: " + ", ".join(source for source, _ in failures),
             err=True,
         )
         raise typer.Exit(code=1 if not continue_on_error else 0)
+    if enrich_trailers:
+        typer.echo(f"Updated trailer_video_id for {trailer_updates} movie(s)")
 
 
 if __name__ == "__main__":

@@ -51,15 +51,19 @@ class MovieOut(BaseModel):
     cast_photo_urls: list[str] | None = None
     trailer_url: str | None = None
     trailer_video_id: str | None = None
+    youtube_thumbnail: str | None = None
     detail_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class MovieListOut(BaseModel):
+    id: int | None = None
+    movie_id: int | None = None
     title: str
     title_en: str | None = None
     poster_url: str | None = None
+    youtube_thumbnail: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
