@@ -59,6 +59,7 @@ class Movie(Base):
     cast: Mapped[str | None] = mapped_column("cast_members", Text, nullable=True)
     cast_photo_urls: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     trailer_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trailer_video_id: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
     detail_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_movie_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

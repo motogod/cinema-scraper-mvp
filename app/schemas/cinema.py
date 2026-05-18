@@ -50,6 +50,7 @@ class MovieOut(BaseModel):
     cast: str | None = None
     cast_photo_urls: list[str] | None = None
     trailer_url: str | None = None
+    trailer_video_id: str | None = None
     detail_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)

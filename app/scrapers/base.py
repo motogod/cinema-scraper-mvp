@@ -28,6 +28,7 @@ class ScrapedMovie:
     cast: str | None = None
     cast_photo_urls: list[str] | None = None
     trailer_url: str | None = None
+    trailer_video_id: str | None = None
     detail_url: str | None = None
     source_movie_id: str | None = None
 

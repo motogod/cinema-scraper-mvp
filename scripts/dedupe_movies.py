@@ -106,6 +106,7 @@ def _movie_quality_score(movie: Movie) -> tuple[int, int, int, int]:
         movie.director,
         movie.cast,
         movie.trailer_url,
+        movie.trailer_video_id,
         movie.detail_url,
     ]
     title_has_cjk = 1 if _has_cjk(movie.title or "") else 0

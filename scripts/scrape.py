@@ -7,7 +7,9 @@ from app.scrapers.acecinema import AceCinemaScraper
 from app.scrapers.ambassador import AmbassadorScraper
 from app.scrapers.broadway import BroadwayScraper
 from app.scrapers.breezecinemas import BreezeCinemasScraper
+from app.scrapers.carnival import CarnivalScraper
 from app.scrapers.ccmovie import CcMovieScraper
+from app.scrapers.cm_movie import CmMovieScraper
 from app.scrapers.eslite import EsliteScraper
 from app.scrapers.governor import GovernorScraper
 from app.scrapers.halarcity import HalarCityScraper
@@ -16,11 +18,16 @@ from app.scrapers.in89 import In89Scraper
 from app.scrapers.kfa import KfaScraper
 from app.scrapers.luxcinema import LuxCinemaScraper
 from app.scrapers.lunacinemax import LunaCinemaxScraper
+from app.scrapers.madou import MadouScraper
 from app.scrapers.machi import MachiCinemaScraper
 from app.scrapers.miramar import MiramarScraper
 from app.scrapers.miranew import MiranewScraper
+from app.scrapers.mldcinema import MLDCinemaScraper
+from app.scrapers.nantai import NantaiScraper
+from app.scrapers.nantou import NantouTheaterScraper
 from app.scrapers.opentix import OpenTixScraper
 from app.scrapers.sbc import SbcScraper
+from app.scrapers.shanming import ShanmingScraper
 from app.scrapers.skcinemas import SKCinemasScraper
 from app.scrapers.spot import SpotScraper
 from app.scrapers.spot_hs import SpotHuashanScraper
@@ -28,6 +35,8 @@ from app.scrapers.showtime_cinemas import ShowtimeCinemasScraper
 from app.scrapers.srm import SrmScraper
 from app.scrapers.timescinema import TimesCinemaScraper
 from app.scrapers.tmovies import TMoviesScraper
+from app.scrapers.ucc import UccScraper
+from app.scrapers.uch import UchScraper
 from app.scrapers.venice import VeniceScraper
 from app.scrapers.vieshow import VieShowScraper
 from app.scrapers.wonderful import WonderfulScraper
@@ -91,6 +100,18 @@ def acecinema():
 def ccmovie():
     scraper = CcMovieScraper()
     _sync_source("ccmovie", scraper, "Chin Chin Cinema")
+
+
+@app.command()
+def carnival():
+    scraper = CarnivalScraper()
+    _sync_source("carnival", scraper, "Carnival Cinemas")
+
+
+@app.command("cm-movie")
+def cm_movie():
+    scraper = CmMovieScraper()
+    _sync_source("cm_movie", scraper, "今日全美戲院")
 
 
 @app.command()
@@ -172,6 +193,12 @@ def lunacinemax():
 
 
 @app.command()
+def madou():
+    scraper = MadouScraper()
+    _sync_source("madou", scraper, "麻豆戲院")
+
+
+@app.command()
 def machi():
     scraper = MachiCinemaScraper()
     _sync_source("machi", scraper, "Machi Cinema")
@@ -187,6 +214,18 @@ def miramar():
 def miranew():
     scraper = MiranewScraper()
     _sync_source("miranew", scraper, "Miranew Cinemas")
+
+
+@app.command()
+def mldcinema():
+    scraper = MLDCinemaScraper()
+    _sync_source("mldcinema", scraper, "MLD Cinema")
+
+
+@app.command()
+def nantai():
+    scraper = NantaiScraper()
+    _sync_source("nantai", scraper, "Nantai Cinema")
 
 
 @app.command()
@@ -238,9 +277,33 @@ def tmovies():
 
 
 @app.command()
+def ucc():
+    scraper = UccScraper()
+    _sync_source("ucc", scraper, "UCC Cinema")
+
+
+@app.command()
 def venice():
     scraper = VeniceScraper()
     _sync_source("venice", scraper, "Venice Cinemas")
+
+
+@app.command()
+def nantou():
+    scraper = NantouTheaterScraper()
+    _sync_source("nantou", scraper, "Nantou Theater")
+
+
+@app.command()
+def shanming():
+    scraper = ShanmingScraper()
+    _sync_source("shanming", scraper, "Shanming Cinema")
+
+
+@app.command()
+def uch():
+    scraper = UchScraper()
+    _sync_source("uch", scraper, "Universal Chunghwa Cinemas")
 
 
 @app.command("all")
@@ -253,6 +316,8 @@ def scrape_all(
     scrapers = [
         ("acecinema", AceCinemaScraper(), "ACE Cinemas"),
         ("ccmovie", CcMovieScraper(), "Chin Chin Cinema"),
+        ("carnival", CarnivalScraper(), "Carnival Cinemas"),
+        ("cm_movie", CmMovieScraper(), "今日全美戲院"),
         ("showtimes", ShowtimeCinemasScraper(), "Showtime Cinemas"),
         ("in89", In89Scraper(), "in89 Cinemax"),
         ("ilanmovie", IlanMovieScraper(), "Ilan Movie"),
@@ -266,9 +331,12 @@ def scrape_all(
         ("kfa", KfaScraper(), "Kaohsiung Film Archive"),
         ("luxcinema", LuxCinemaScraper(), "LUX Cinema"),
         ("lunacinemax", LunaCinemaxScraper(), "Luna Cinemax"),
+        ("madou", MadouScraper(), "麻豆戲院"),
         ("machi", MachiCinemaScraper(), "Machi Cinema"),
         ("miramar", MiramarScraper(), "Miramar Cinemas"),
         ("miranew", MiranewScraper(), "Miranew Cinemas"),
+        ("mldcinema", MLDCinemaScraper(), "MLD Cinema"),
+        ("nantai", NantaiScraper(), "Nantai Cinema"),
         ("opentix", OpenTixScraper(), "OpenTIX"),
         ("sbc", SbcScraper(), "SBC Cinema"),
         ("skcinemas", SKCinemasScraper(), "Shin Kong Cinemas"),
@@ -277,7 +345,11 @@ def scrape_all(
         ("srm", SrmScraper(), "Sunrise Movie"),
         ("timescinema", TimesCinemaScraper(), "Times Cinema"),
         ("tmovies", TMoviesScraper(), "T-Movies Cinema"),
+        ("ucc", UccScraper(), "UCC Cinema"),
         ("venice", VeniceScraper(), "Venice Cinemas"),
+        ("nantou", NantouTheaterScraper(), "Nantou Theater"),
+        ("shanming", ShanmingScraper(), "Shanming Cinema"),
+        ("uch", UchScraper(), "Universal Chunghwa Cinemas"),
         ("vieshow", lambda: VieShowScraper(headless=headless), "Vie Show"),
     ]
 

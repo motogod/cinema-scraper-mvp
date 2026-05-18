@@ -5,6 +5,7 @@ import re
 
 from app.models import Cinema, CinemaChain, Movie, MovieSource, Showtime
 from app.scrapers.base import ScrapedShowtime
+from app.utils.trailers import youtube_video_id
 
 
 def import_showtimes(db: Session, items: list[ScrapedShowtime]) -> int:
@@ -179,6 +180,16 @@ def _upsert_movie(db: Session, item: ScrapedShowtime) -> int:
     if existing_id:
         existing = db.get(Movie, existing_id)
         updates = _movie_merge_updates(existing, movie) if existing else {}
+        fallback = _best_matching_movie(
+            db,
+            movie.title,
+            movie.title_zh,
+            movie.title_en,
+            movie.original_title,
+            exclude_id=existing_id,
+        )
+        if existing and fallback:
+            updates.update(_movie_merge_updates(existing, fallback, pending=updates))
         if updates:
             db.execute(update(Movie).where(Movie.id == existing_id).values(**updates))
         _upsert_movie_source(db, existing_id, item)
@@ -205,11 +216,23 @@ def _movie_id_from_title(
     db: Session,
     *titles: str | None,
 ) -> int | None:
+    movie = _best_matching_movie(db, *titles)
+    return movie.id if movie else None
+
+
+def _best_matching_movie(
+    db: Session,
+    *titles: str | None,
+    exclude_id: int | None = None,
+) -> Movie | None:
     incoming = _movie_title_keys(*titles)
     if not incoming["all"]:
         return None
+    matches: list[Movie] = []
     movies = db.scalars(select(Movie)).all()
     for movie in movies:
+        if exclude_id is not None and movie.id == exclude_id:
+            continue
         existing = _movie_title_keys(
             movie.title,
             movie.title_zh,
@@ -217,8 +240,8 @@ def _movie_id_from_title(
             movie.original_title,
         )
         if _is_same_movie_title(incoming, existing):
-            return movie.id
-    return None
+            matches.append(movie)
+    return max(matches, key=_movie_metadata_quality_score) if matches else None
 
 
 def _movie_title_keys(*titles: str | None) -> dict[str, set[str]]:
@@ -325,6 +348,7 @@ def _strip_suffixed_tags(title: str) -> str:
 
 
 def _movie_insert_values(movie) -> dict:
+    trailer_video_id = movie.trailer_video_id or youtube_video_id(movie.trailer_url)
     return {
         "title": movie.title,
         "title_zh": movie.title_zh,
@@ -341,13 +365,15 @@ def _movie_insert_values(movie) -> dict:
         "cast": movie.cast,
         "cast_photo_urls": movie.cast_photo_urls,
         "trailer_url": movie.trailer_url,
+        "trailer_video_id": trailer_video_id,
         "detail_url": movie.detail_url,
         "source_movie_id": movie.source_movie_id,
     }
 
 
-def _movie_merge_updates(existing: Movie, incoming) -> dict:
+def _movie_merge_updates(existing: Movie, incoming, pending: dict | None = None) -> dict:
     updates = {}
+    pending = pending or {}
     for field in [
         "title_zh",
         "title_en",
@@ -361,11 +387,16 @@ def _movie_merge_updates(existing: Movie, incoming) -> dict:
         "director",
         "cast",
         "trailer_url",
+        "trailer_video_id",
         "detail_url",
         "source_movie_id",
     ]:
-        if _is_blank(getattr(existing, field)) and not _is_blank(getattr(incoming, field)):
-            updates[field] = getattr(incoming, field)
+        incoming_value = getattr(incoming, field)
+        if field == "trailer_video_id":
+            incoming_value = incoming_value or youtube_video_id(incoming.trailer_url)
+        current_value = pending.get(field, getattr(existing, field))
+        if _is_blank(current_value) and not _is_blank(incoming_value):
+            updates[field] = incoming_value
 
     still_urls = _better_list(existing.still_urls, incoming.still_urls)
     if still_urls is not existing.still_urls:
@@ -376,6 +407,31 @@ def _movie_merge_updates(existing: Movie, incoming) -> dict:
         updates["cast_photo_urls"] = cast_photo_urls
 
     return updates
+
+
+def _movie_metadata_quality_score(movie: Movie) -> tuple[int, int, int, int, int]:
+    return (
+        1 if not _is_blank(movie.description) else 0,
+        1 if movie.trailer_video_id or youtube_video_id(movie.trailer_url) else 0,
+        1 if not _is_blank(movie.poster_url) else 0,
+        1 if not _is_blank(movie.release_date) else 0,
+        sum(
+            1
+            for value in [
+                movie.title_zh,
+                movie.title_en,
+                movie.original_title,
+                movie.duration_minutes,
+                movie.rating,
+                movie.genre,
+                movie.director,
+                movie.cast,
+                movie.detail_url,
+                movie.source_movie_id,
+            ]
+            if not _is_blank(value)
+        ),
+    )
 
 
 def _is_blank(value) -> bool:
@@ -435,6 +491,8 @@ def ensure_schema(db: Session) -> None:
         "ALTER TABLE movies ADD COLUMN IF NOT EXISTS cast_members TEXT",
         "ALTER TABLE movies ADD COLUMN IF NOT EXISTS cast_photo_urls JSON",
         "ALTER TABLE movies ADD COLUMN IF NOT EXISTS trailer_url TEXT",
+        "ALTER TABLE movies ADD COLUMN IF NOT EXISTS trailer_video_id VARCHAR(20)",
+        "CREATE INDEX IF NOT EXISTS ix_movies_trailer_video_id ON movies (trailer_video_id)",
         "ALTER TABLE movies ADD COLUMN IF NOT EXISTS detail_url TEXT",
         """
         CREATE TABLE IF NOT EXISTS movie_sources (

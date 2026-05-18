@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import re
-import time
 from datetime import date, datetime
-from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
@@ -12,24 +10,20 @@ from bs4 import BeautifulSoup
 from app.scrapers.base import ScrapedCinema, ScrapedMovie, ScrapedShowtime
 
 SITE_BASE_URL = "https://www.atmovies.com.tw"
-SHOWTIME_URL = f"{SITE_BASE_URL}/showtime/t03303/a03/"
-SOURCE = "venice"
-CHAIN = "威尼斯影城"
+SHOWTIME_URL = f"{SITE_BASE_URL}/showtime/t06625/a06/"
+SOURCE = "madou"
+CHAIN = "麻豆戲院"
 CINEMA = ScrapedCinema(
     chain=CHAIN,
-    name="威尼斯影城",
-    city="桃園",
-    address="桃園市中壢區九和一街48號3樓之2",
-    source_cinema_id="t03303",
+    name="麻豆戲院",
+    city="台南",
+    address="台南市麻豆區興中路106號",
+    source_cinema_id="t06625",
 )
 
 
-class VeniceScraper:
-    """Scraper for Venice Cinemas showtimes.
-
-    The official Venice site is protected by Cloudflare in headless requests, so
-    we read the theater's atmovies showtime page instead.
-    """
+class MadouScraper:
+    """Scraper for 麻豆戲院 showtimes from @movies."""
 
     def scrape(self) -> list[ScrapedShowtime]:
         first_html = self._fetch_text(SHOWTIME_URL)
@@ -37,15 +31,10 @@ class VeniceScraper:
         results: list[ScrapedShowtime] = []
 
         for url in dict.fromkeys(urls):
-            if url == SHOWTIME_URL:
-                html = first_html
-            else:
-                try:
-                    html = self._fetch_text_with_retry(url)
-                except (HTTPError, URLError, TimeoutError):
-                    continue
-
-            soup = BeautifulSoup(html, "lxml")
+            soup = BeautifulSoup(
+                first_html if url == SHOWTIME_URL else self._fetch_text(url),
+                "lxml",
+            )
             show_date = self._show_date(soup, url)
             if not show_date:
                 continue
@@ -53,7 +42,7 @@ class VeniceScraper:
 
         results = self._dedupe(results)
         if not results:
-            raise RuntimeError("venice scraper found no showtimes; keeping existing data")
+            raise RuntimeError("madou scraper found no showtimes; keeping existing data")
         return results
 
     def _showtimes_from_page(
@@ -72,7 +61,6 @@ class VeniceScraper:
             version_label = " / ".join(versions) if versions else None
             format_label = self._format_from_versions(versions)
             language = self._language_from_versions(versions)
-            auditorium_brand = self._auditorium_brand_from_versions(versions)
 
             for time_text in self._time_texts(block):
                 start_time = self._parse_time(time_text)
@@ -96,7 +84,6 @@ class VeniceScraper:
                         source=SOURCE,
                         source_showtime_id=source_showtime_id,
                         version_label=version_label,
-                        auditorium_brand=auditorium_brand,
                         projection_type=format_label,
                         audio_language=language,
                         source_payload={
@@ -115,7 +102,6 @@ class VeniceScraper:
             return None
 
         detail_url = urljoin(SITE_BASE_URL, link.get("href")) if link else None
-        source_movie_id = self._source_movie_id(detail_url)
         return ScrapedMovie(
             title=title,
             title_zh=title,
@@ -123,7 +109,7 @@ class VeniceScraper:
             duration_minutes=self._duration_minutes(block),
             rating=self._rating(block),
             detail_url=detail_url,
-            source_movie_id=source_movie_id,
+            source_movie_id=self._source_movie_id(detail_url),
         )
 
     def _fetch_text(self, url: str) -> str:
@@ -142,28 +128,10 @@ class VeniceScraper:
         with urlopen(request, timeout=60) as response:
             return response.read().decode("utf-8", errors="ignore")
 
-    def _fetch_text_with_retry(self, url: str, attempts: int = 2) -> str:
-        last_error: Exception | None = None
-        for attempt in range(attempts):
-            try:
-                return self._fetch_text(url)
-            except HTTPError as exc:
-                last_error = exc
-                if exc.code < 500 or attempt == attempts - 1:
-                    raise
-            except (URLError, TimeoutError) as exc:
-                last_error = exc
-                if attempt == attempts - 1:
-                    raise
-            time.sleep(1)
-        if last_error:
-            raise last_error
-        raise RuntimeError(f"failed to fetch {url}")
-
     def _date_urls(self, html: str) -> list[str]:
         soup = BeautifulSoup(html, "lxml")
         urls: list[str] = []
-        for link in soup.select('a[href^="/showtime/t03303/a03/"]'):
+        for link in soup.select('a[href^="/showtime/t06625/a06/"]'):
             href = link.get("href") or ""
             if re.search(r"/\d{8}/?$", href):
                 urls.append(urljoin(SITE_BASE_URL, href))
@@ -224,7 +192,7 @@ class VeniceScraper:
     def _rating(self, block) -> str | None:
         image = block.select_one("img[src*='cer_']")
         src = image.get("src") if image else ""
-        match = re.search(r"cer_([A-Za-z]+)\.", src or "")
+        match = re.search(r"cer_([A-Za-z0-9]+)\.", src or "")
         return match.group(1) if match else None
 
     def _source_movie_id(self, detail_url: str | None) -> str | None:
@@ -234,10 +202,12 @@ class VeniceScraper:
         return match.group(1) if match else None
 
     def _format_from_versions(self, versions: list[str]) -> str | None:
-        joined = " ".join(versions)
-        if "3D" in joined.upper():
+        joined = " ".join(versions).upper()
+        if "3D" in joined:
             return "3D"
-        if "ATMOS" in joined.upper():
+        if "2D" in joined:
+            return "2D"
+        if "ATMOS" in joined:
             return "ATMOS"
         if versions:
             return "數位"
@@ -245,16 +215,14 @@ class VeniceScraper:
 
     def _language_from_versions(self, versions: list[str]) -> str | None:
         joined = " ".join(versions)
-        if "中文版" in joined:
-            return "中文"
-        if "英文版" in joined:
+        if "日文" in joined or "日語" in joined:
+            return "日語"
+        if "英文" in joined or "英語" in joined:
             return "英語"
-        return None
-
-    def _auditorium_brand_from_versions(self, versions: list[str]) -> str | None:
-        for version in versions:
-            if "水影威尼斯" in version or "ATMOS" in version.upper():
-                return version
+        if "國語" in joined:
+            return "國語"
+        if "中文" in joined:
+            return "中文"
         return None
 
     def _dedupe(self, items: list[ScrapedShowtime]) -> list[ScrapedShowtime]:
